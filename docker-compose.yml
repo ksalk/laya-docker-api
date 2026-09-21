@@ -1,0 +1,29 @@
+services:
+  jaya-api:
+    build: .
+    image: jaya-api:latest
+    container_name: jaya-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8120:8120"
+    environment:
+      LAYA_PRELOAD: ${LAYA_PRELOAD:-english,multilingual}
+      LAYA_MAX_LOADED: ${LAYA_MAX_LOADED:-2}
+      LAYA_DEVICE: ${LAYA_DEVICE:-cuda}
+      LAYA_PORT: ${LAYA_PORT:-8120}
+      HF_HOME: /models
+    volumes:
+      - ./models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8120/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 300s
