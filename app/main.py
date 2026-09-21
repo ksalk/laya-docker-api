@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException
 from .schemas import HealthResponse, PredictRequest
 
 logger = logging.getLogger("jaya-api")
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 VALID_CHECKPOINTS = ("english", "multilingual", "typed-decisions")
 
@@ -86,14 +88,32 @@ async def lifespan(app: FastAPI):
         logger.warning("CUDA requested but not available, falling back to CPU")
         device = "cpu"
 
+    if device == "cuda":
+        free_b, total_b = torch.cuda.mem_get_info()
+        logger.info("CUDA free/total memory at startup: %.2f/%.2f GiB", free_b / 1024**3, total_b / 1024**3)
+        # Rough per-checkpoint weights estimate (fp32): params * 4 bytes + overhead.
+        # english/typed-decisions ~421M params, multilingual ~322M params.
+        sizes = {"english": 1.8, "typed-decisions": 1.8, "multilingual": 1.4}
+        needed_gb = sum(sizes.get(c, 1.5) for c in preload) + 0.6
+        available_gb = free_b / 1024**3
+        if needed_gb > available_gb:
+            logger.warning(
+                "Preloading %s needs ~%.1f GiB VRAM but only %.1f GiB is free; "
+                "falling back to CPU. Reduce LAYA_PRELOAD or free VRAM to use the GPU.",
+                preload, needed_gb, available_gb,
+            )
+            device = "cpu"
+
     from laya import Router
 
     import laya
 
     logger.info("Loading Laya router (preload=%s, device=%s)...", preload, device)
     start = time.perf_counter()
-    router = Router(preload=preload, max_loaded=args.max_loaded, device=device)
-    logger.info("Router ready in %.1fs", time.perf_counter() - start)
+    router = Router(preload=False, max_loaded=args.max_loaded, device=device)
+    if preload:
+        router.preload(preload)
+    logger.info("Router ready in %.1fs (resident: %s)", time.perf_counter() - start, router.loaded)
 
     gpu_name = None
     if torch.cuda.is_available():
@@ -128,7 +148,7 @@ async def health():
         device=runtime["device"],
         gpu=runtime["gpu"],
         vram=vram_info(),
-        checkpoints_resident=runtime["preload"],
+        checkpoints_resident=router.loaded,
         max_loaded=runtime["max_loaded"],
         laya_version=runtime["laya_version"],
     )
