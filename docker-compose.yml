@@ -1,8 +1,8 @@
 services:
-  jaya-api:
+  laya-api:
     build: .
-    image: jaya-api:latest
-    container_name: jaya-api
+    image: laya-api:latest
+    container_name: laya-api
     restart: unless-stopped
     ports:
       - "127.0.0.1:8120:8120"

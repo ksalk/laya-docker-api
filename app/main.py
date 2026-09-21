@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 
 from .schemas import HealthResponse, PredictRequest
 
-logger = logging.getLogger("jaya-api")
+logger = logging.getLogger("laya-api")
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
@@ -132,7 +132,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Jaya Docker API",
+    title="Laya Docker API",
     description="HTTP wrapper for the Laya decision engine",
     version="0.1.0",
     lifespan=lifespan,

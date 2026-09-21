@@ -1,8 +1,10 @@
-# Jaya Docker API
+# Laya Docker API
 
 HTTP wrapper around the [Laya](https://github.com/NandhaKishorM/laya) decision engine, packaged as a Docker container with GPU acceleration.
 
 Laya evaluates typed questions (`choice`, `score`, `noul`) over any state (text, email, ticket, JSON document) in a single forward pass — tens of milliseconds on GPU, no text generation, nothing to parse or hallucinate. This repo exposes that engine over plain HTTP so you can call it from anywhere on your machine with a simple `curl` or any HTTP client.
+
+For a detailed architecture walkthrough and a full testing guide, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```
 HTTP client ──► :8120 (FastAPI) ──► Laya Router ──► CUDA GPU
@@ -39,8 +41,8 @@ sudo systemctl restart docker
 ## Quickstart
 
 ```bash
-git clone https://github.com/ksalk/jaya-docker-api.git
-cd jaya-docker-api
+git clone https://github.com/ksalk/laya-docker-api.git
+cd laya-docker-api
 docker compose up -d
 ```
 
@@ -176,4 +178,4 @@ If you hit CUDA OOM, reduce the preload set or switch to CPU.
 
 ## License
 
-Apache-2.0. Laya is developed by [Convai Innovations](https://huggingface.co/convaiinnovations/laya).
+[MIT](LICENSE). The wrapped [Laya](https://github.com/NandhaKishorM/laya) decision engine itself is Apache-2.0 by [Convai Innovations](https://huggingface.co/convaiinnovations/laya).
