@@ -146,6 +146,21 @@ Optional fields:
 
 - `"model": "english" | "multilingual" | "typed-decisions"` — explicit checkpoint override. When omitted, the Router auto-detects language/script per request.
 
+### Authentication (optional)
+
+Auth is **off by default** — the service binds to `127.0.0.1` only. To expose it beyond loopback, set `LAYA_API_KEY` and send it as a bearer token on `/predict`:
+
+```bash
+LAYA_API_KEY=my-secret docker compose up -d
+
+curl -X POST http://127.0.0.1:8120/predict \
+  -H "Authorization: Bearer my-secret" \
+  -H "Content-Type: application/json" \
+  -d '{...}'
+```
+
+Requests without a valid key get `401`. `/health` stays unauthenticated so container healthchecks work without the key.
+
 Question types:
 
 | Type | Output | Example use |

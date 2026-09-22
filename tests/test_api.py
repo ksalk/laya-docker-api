@@ -117,6 +117,52 @@ class TestLimits:
         assert "too large" in resp.text
 
 
+class TestAuth:
+    """LAYA_API_KEY is read per request; monkeypatch scopes it per test."""
+
+    def test_401_without_header(self, client, monkeypatch):
+        monkeypatch.setenv("LAYA_API_KEY", "secret-key")
+        resp = client.post("/predict", json=VALID_BODY)
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "Unauthorized"
+
+    def test_401_wrong_key(self, client, monkeypatch):
+        monkeypatch.setenv("LAYA_API_KEY", "secret-key")
+        resp = client.post(
+            "/predict",
+            headers={"Authorization": "Bearer wrong"},
+            json=VALID_BODY,
+        )
+        assert resp.status_code == 401
+
+    def test_200_with_correct_key(self, client, monkeypatch):
+        monkeypatch.setenv("LAYA_API_KEY", "secret-key")
+        resp = client.post(
+            "/predict",
+            headers={"Authorization": "Bearer secret-key"},
+            json=VALID_BODY,
+        )
+        assert resp.status_code == 200
+
+    def test_scheme_is_case_insensitive(self, client, monkeypatch):
+        monkeypatch.setenv("LAYA_API_KEY", "secret-key")
+        resp = client.post(
+            "/predict",
+            headers={"Authorization": "bearer secret-key"},
+            json=VALID_BODY,
+        )
+        assert resp.status_code == 200
+
+    def test_open_when_key_unset(self, client, monkeypatch):
+        monkeypatch.delenv("LAYA_API_KEY", raising=False)
+        resp = client.post("/predict", json=VALID_BODY)
+        assert resp.status_code == 200
+
+    def test_health_stays_open_with_key(self, client, monkeypatch):
+        monkeypatch.setenv("LAYA_API_KEY", "secret-key")
+        assert client.get("/health").status_code == 200
+
+
 class TestHealth:
     def test_ok_shape(self, client, fake_router):
         resp = client.get("/health")

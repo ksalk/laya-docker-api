@@ -2,11 +2,12 @@ import argparse
 import json
 import logging
 import os
+import secrets
 import threading
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp
 
@@ -154,6 +155,21 @@ class _BodyTooLarge(Exception):
     """Internal signal: chunked body exceeded the size cap mid-stream."""
 
 
+def require_api_key(request: Request) -> None:
+    """Optional bearer auth for /predict.
+
+    Disabled while LAYA_API_KEY is unset (loopback binding is then the only
+    protection). The env var is read per request so toggling it in compose
+    takes effect on restart without extra config plumbing.
+    """
+    expected = os.environ.get("LAYA_API_KEY", "")
+    if not expected:
+        return
+    scheme, _, provided = request.headers.get("Authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 class BodySizeLimitMiddleware:
     """Rejects oversized request bodies with 413 before they reach the app.
 
@@ -238,7 +254,7 @@ async def health():
     )
 
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(require_api_key)])
 def predict(req: PredictRequest):
     if router is None:
         raise HTTPException(status_code=503, detail="Model still loading")

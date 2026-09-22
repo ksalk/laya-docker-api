@@ -5,12 +5,15 @@ services:
     container_name: laya-api
     restart: unless-stopped
     ports:
+      # Loopback-only by default. Removing the "127.0.0.1:" prefix exposes the
+      # API to your network — set LAYA_API_KEY first so /predict requires auth.
       - "127.0.0.1:8120:8120"
     environment:
       LAYA_PRELOAD: ${LAYA_PRELOAD:-english,multilingual}
       LAYA_MAX_LOADED: ${LAYA_MAX_LOADED:-2}
       LAYA_DEVICE: ${LAYA_DEVICE:-cuda}
       LAYA_PORT: ${LAYA_PORT:-8120}
+      LAYA_API_KEY: ${LAYA_API_KEY:-}
       HF_HOME: /models
     volumes:
       - ./models:/models
