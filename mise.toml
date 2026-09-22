@@ -3,10 +3,10 @@ python = "3.12"
 uv = "latest"
 
 [tasks.setup]
-description = "Create venv and install runtime + dev deps (no torch)"
+description = "Create venv and install dev deps (torch-free; the image installs requirements.lock)"
 run = """
 uv venv --python 3.12 --allow-existing
-uv pip install -r requirements.txt -r requirements-dev.txt
+uv pip install -r requirements-dev.txt
 """
 
 [tasks.test]

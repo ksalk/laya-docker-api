@@ -1,3 +1,7 @@
+# Locked builds install from requirements.lock (generated from this file).
+# After changing anything here, regenerate: uv pip compile requirements.txt --universal -o requirements.lock
+laya==0.3.4
+torch==2.5.1  # must match the pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime base image
 fastapi>=0.115.0,<1.0
 uvicorn[standard]>=0.30.0,<1.0
 pydantic>=2.7.0,<3.0

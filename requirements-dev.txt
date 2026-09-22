@@ -1,2 +1,8 @@
+# Dev/CI dependency set: the app's web layer + test tooling.
+# Deliberately torch-free (tests never import torch) — the full production
+# graph lives in requirements.lock, which only the Dockerfile installs.
+fastapi>=0.115.0,<1.0
+uvicorn[standard]>=0.30.0,<1.0
+pydantic>=2.7.0,<3.0
 pytest>=8.0,<9.0
 httpx>=0.27,<1.0

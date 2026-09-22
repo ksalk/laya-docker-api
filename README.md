@@ -198,7 +198,15 @@ Tests run locally on CPU with no GPU, no torch, and no model downloads:
 mise run test
 ```
 
-Requires [mise](https://mise.jdx.dev/). This creates a Python 3.12 venv in `.venv/`, installs the runtime + dev dependencies (see `requirements.txt` / `requirements-dev.txt`), and runs pytest. `mise run setup` re-runs just the dependency install.
+Requires [mise](https://mise.jdx.dev/). This creates a Python 3.12 venv in `.venv/`, installs the dev dependencies (see `requirements-dev.txt`), and runs pytest. `mise run setup` re-runs just the dependency install.
+
+### Dependency locking
+
+Production deps are locked in `requirements.lock` (generated from `requirements.txt`); the Dockerfile installs from the lock, so builds are reproducible. `requirements-dev.txt` stays loose and torch-free for local dev and CI. After changing `requirements.txt`, regenerate:
+
+```bash
+uv pip compile requirements.txt --universal -o requirements.lock
+```
 
 ## Troubleshooting
 
