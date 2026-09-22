@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import threading
 import time
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,12 @@ VALID_CHECKPOINTS = ("english", "multilingual", "typed-decisions")
 
 router = None
 runtime = {}
+
+# Laya's Router mutates plain dict/list LRU state (load/_touch/_evict) with no
+# internal locking, so concurrent predict calls are not safe. Sync handlers run
+# in FastAPI's threadpool; this lock serializes inference (a single GPU would
+# serialize it anyway).
+_predict_lock = threading.Lock()
 
 
 def parse_args():
@@ -155,15 +162,13 @@ async def health():
 
 
 @app.post("/predict")
-async def predict(req: PredictRequest):
+def predict(req: PredictRequest):
     if router is None:
         raise HTTPException(status_code=503, detail="Model still loading")
     start = time.perf_counter()
     try:
-        if req.model is not None:
+        with _predict_lock:
             result = router.predict(req.state, req.questions, model=req.model)
-        else:
-            result = router.predict(req.state, req.questions)
     except Exception as exc:
         logger.exception("Prediction failed")
         raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
