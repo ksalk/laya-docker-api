@@ -4,8 +4,6 @@ HTTP wrapper around the [Laya](https://github.com/NandhaKishorM/laya) decision e
 
 Laya evaluates typed questions (`choice`, `score`, `noul`) over any state (text, email, ticket, JSON document) in a single forward pass — tens of milliseconds on GPU, no text generation, nothing to parse or hallucinate. This repo exposes that engine over plain HTTP so you can call it from anywhere on your machine with a simple `curl` or any HTTP client.
 
-For a detailed architecture walkthrough and a full testing guide, see [ARCHITECTURE.md](ARCHITECTURE.md).
-
 ```
 HTTP client ──► :8120 (FastAPI) ──► Laya Router ──► CUDA GPU
                                        │
