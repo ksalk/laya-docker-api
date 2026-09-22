@@ -62,10 +62,13 @@ class TestPredictSuccess:
 
 class TestPredictErrors:
     def test_router_exception_maps_to_500(self, client, fake_router):
-        fake_router.error = RuntimeError("CUDA out of memory")
+        fake_router.error = RuntimeError("CUDA out of memory: GPU 0 has paths /usr/local/lib")
         resp = client.post("/predict", json=VALID_BODY)
         assert resp.status_code == 500
-        assert "Prediction failed" in resp.json()["detail"]
+        assert resp.json()["detail"] == "Prediction failed"
+        # Internal exception details must not leak to clients (#5).
+        assert "CUDA" not in resp.text
+        assert "/usr/local/lib" not in resp.text
 
     def test_503_when_router_missing(self, no_router):
         resp = no_router.post("/predict", json=VALID_BODY)

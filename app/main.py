@@ -248,6 +248,6 @@ def predict(req: PredictRequest):
             result = router.predict(req.state, req.questions, model=req.model)
     except Exception as exc:
         logger.exception("Prediction failed")
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Prediction failed") from exc
     latency_ms = round((time.perf_counter() - start) * 1000, 1)
     return {**result, "latency_ms": latency_ms}
