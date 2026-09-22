@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import threading
@@ -6,6 +7,8 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from starlette.datastructures import Headers
+from starlette.types import ASGIApp
 
 from .schemas import HealthResponse, PredictRequest
 
@@ -144,12 +147,80 @@ async def lifespan(app: FastAPI):
     router = None
 
 
+MAX_BODY_BYTES = 1024 * 1024  # 1 MB hard cap on request bodies
+
+
+class _BodyTooLarge(Exception):
+    """Internal signal: chunked body exceeded the size cap mid-stream."""
+
+
+class BodySizeLimitMiddleware:
+    """Rejects oversized request bodies with 413 before they reach the app.
+
+    With a Content-Length header (curl, requests, httpx all send one) the
+    body is never read at all. For chunked bodies it counts bytes as they
+    stream and cuts off at the limit.
+    """
+
+    def __init__(self, app: ASGIApp, max_bytes: int = MAX_BODY_BYTES):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        content_length = headers.get("content-length")
+        if content_length is not None:
+            if int(content_length) > self.max_bytes:
+                await self._reject(send)
+                return
+            await self.app(scope, receive, send)
+            return
+
+        # Chunked / unknown length: count bytes as they arrive.
+        received = 0
+
+        async def counting_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    await self._reject(send)
+                    raise _BodyTooLarge()
+            return message
+
+        try:
+            await self.app(scope, counting_receive, send)
+        except _BodyTooLarge:
+            pass
+
+    async def _reject(self, send):
+        body = json.dumps({"detail": f"Request body too large (max {self.max_bytes} bytes)"}).encode()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode()),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+
 app = FastAPI(
     title="Laya Docker API",
     description="HTTP wrapper for the Laya decision engine",
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(BodySizeLimitMiddleware)
 
 
 @app.get("/health", response_model=HealthResponse)

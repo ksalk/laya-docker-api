@@ -1,8 +1,12 @@
+import json
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 ModelName = Literal["english", "multilingual", "typed-decisions"]
+
+MAX_QUESTIONS = 128
+MAX_STATE_BYTES = 250_000  # serialized JSON size of `state`, ~250 KB
 
 
 class PredictRequest(BaseModel):
@@ -27,6 +31,24 @@ class PredictRequest(BaseModel):
             "When omitted the Router picks the checkpoint automatically."
         ),
     )
+
+    @field_validator("questions")
+    @classmethod
+    def _cap_question_count(cls, v: dict[str, Any]) -> dict[str, Any]:
+        if len(v) > MAX_QUESTIONS:
+            raise ValueError(
+                f"Too many questions: {len(v)} (max {MAX_QUESTIONS})"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _cap_state_size(self) -> "PredictRequest":
+        size = len(json.dumps(self.state))
+        if size > MAX_STATE_BYTES:
+            raise ValueError(
+                f"State too large: {size} bytes (max {MAX_STATE_BYTES})"
+            )
+        return self
 
 
 class HealthResponse(BaseModel):

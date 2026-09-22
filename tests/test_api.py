@@ -1,6 +1,9 @@
 import httpx
 import pytest
 
+from app.main import MAX_BODY_BYTES
+from app.schemas import MAX_QUESTIONS, MAX_STATE_BYTES
+
 
 VALID_BODY = {
     "state": {"subject": "Duplicate charge", "body": "We were billed twice."},
@@ -68,6 +71,47 @@ class TestPredictErrors:
         resp = no_router.post("/predict", json=VALID_BODY)
         assert resp.status_code == 503
         assert "loading" in resp.json()["detail"].lower()
+
+
+class TestLimits:
+    @staticmethod
+    def _questions(n: int) -> dict:
+        return {
+            f"q{i}": {"type": "noul", "instructions": f"question {i}"}
+            for i in range(n)
+        }
+
+    def test_questions_at_cap_ok(self, client):
+        resp = client.post(
+            "/predict", json={"state": {}, "questions": self._questions(MAX_QUESTIONS)}
+        )
+        assert resp.status_code == 200
+
+    def test_questions_over_cap_is_422(self, client):
+        resp = client.post(
+            "/predict",
+            json={"state": {}, "questions": self._questions(MAX_QUESTIONS + 1)},
+        )
+        assert resp.status_code == 422
+        assert str(MAX_QUESTIONS) in resp.text
+
+    def test_state_just_under_cap_ok(self, client):
+        state = {"text": "x" * (MAX_STATE_BYTES - 100)}
+        resp = client.post("/predict", json={"state": state, "questions": {"q": {}}})
+        assert resp.status_code == 200
+
+    def test_state_over_cap_is_422(self, client):
+        state = {"text": "x" * (MAX_STATE_BYTES + 1000)}
+        resp = client.post("/predict", json={"state": state, "questions": {"q": {}}})
+        assert resp.status_code == 422
+        assert "State too large" in resp.text
+
+    def test_body_over_cap_is_413(self, client):
+        # TestClient sets Content-Length, so the middleware rejects pre-parse.
+        big = "x" * (MAX_BODY_BYTES + 1000)
+        resp = client.post("/predict", json={"state": {"text": big}, "questions": {}})
+        assert resp.status_code == 413
+        assert "too large" in resp.text
 
 
 class TestHealth:

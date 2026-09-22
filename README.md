@@ -154,6 +154,14 @@ Question types:
 | `score` | Expected ordinal level | Urgency, severity, frustration |
 | `noul` | Calibrated P(true), 0.0–1.0 | Churn risk, spam, jailbreak detection |
 
+Request limits:
+
+| Limit | Value | Exceeding it returns |
+|---|---|---|
+| Questions per request | 128 | `422` with the count named in `detail` |
+| Serialized `state` size | ~250 KB | `422` (`State too large: N bytes (max 250000)`) |
+| Total request body | 1 MB | `413` before the body is parsed |
+
 ## VRAM tuning
 
 Approximate weights footprint per checkpoint (fp32, plus ~0.6 GB CUDA context):
