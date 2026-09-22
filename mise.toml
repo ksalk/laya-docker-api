@@ -1,0 +1,15 @@
+[tools]
+python = "3.12"
+uv = "latest"
+
+[tasks.setup]
+description = "Create venv and install runtime + dev deps (no torch)"
+run = """
+uv venv --python 3.12 --allow-existing
+uv pip install -r requirements.txt -r requirements-dev.txt
+"""
+
+[tasks.test]
+description = "Run the test suite"
+depends = ["setup"]
+run = "uv run pytest"

@@ -169,6 +169,16 @@ Approximate weights footprint per checkpoint (fp32, plus ~0.6 GB CUDA context):
 
 If you hit CUDA OOM, reduce the preload set or switch to CPU.
 
+## Development
+
+Tests run locally on CPU with no GPU, no torch, and no model downloads:
+
+```bash
+mise run test
+```
+
+Requires [mise](https://mise.jdx.dev/). This creates a Python 3.12 venv in `.venv/`, installs the runtime + dev dependencies (see `requirements.txt` / `requirements-dev.txt`), and runs pytest. `mise run setup` re-runs just the dependency install.
+
 ## Troubleshooting
 
 - **`failed to discover GPU vendor from CDI`** — NVIDIA Container Toolkit not set up; see the verify step above.

@@ -5,7 +5,6 @@ import threading
 import time
 from contextlib import asynccontextmanager
 
-import torch
 from fastapi import FastAPI, HTTPException
 
 from .schemas import HealthResponse, PredictRequest
@@ -73,6 +72,11 @@ def parse_preload(value: str) -> list[str]:
 
 
 def vram_info():
+    try:
+        import torch
+    except ImportError:
+        return None
+
     if not torch.cuda.is_available():
         return None
     free, total = torch.cuda.mem_get_info()
@@ -86,6 +90,8 @@ def vram_info():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global router, runtime
+
+    import torch
 
     args = parse_args()
     preload = parse_preload(args.preload)
