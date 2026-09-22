@@ -29,7 +29,17 @@ runtime = {}
 _predict_lock = threading.Lock()
 
 
-def parse_args():
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise SystemExit(f"{name} must be an integer, got {raw!r}")
+
+
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="HTTP API for the Laya decision engine")
     parser.add_argument(
         "--preload",
@@ -39,7 +49,7 @@ def parse_args():
     parser.add_argument(
         "--max-loaded",
         type=int,
-        default=int(os.environ.get("LAYA_MAX_LOADED", "2")),
+        default=_int_env("LAYA_MAX_LOADED", 2),
         help="Max checkpoints kept resident (LRU eviction)",
     )
     parser.add_argument(
@@ -55,10 +65,10 @@ def parse_args():
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.environ.get("LAYA_PORT", "8120")),
+        default=_int_env("LAYA_PORT", 8120),
         help="Listen port",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def parse_preload(value: str) -> list[str]:
@@ -97,7 +107,10 @@ async def lifespan(app: FastAPI):
 
     import torch
 
-    args = parse_args()
+    # argv=[] → env-only config: under `uvicorn app.main:app` the command line
+    # belongs to uvicorn, and argparse must never see its flags. `python -m app`
+    # passes sys.argv via the default (argv=None) in __main__.py.
+    args = parse_args(argv=[])
     preload = parse_preload(args.preload)
     device = args.device
 

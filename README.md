@@ -85,6 +85,10 @@ Example — CPU-only, multilingual only:
 LAYA_PRELOAD=multilingual LAYA_DEVICE=cpu docker compose up -d
 ```
 
+Numeric env vars (`LAYA_MAX_LOADED`, `LAYA_PORT`) must be integers; bad values fail startup with a message naming the variable.
+
+> Running without Docker (`uvicorn app.main:app`)? Configuration is then env-only — CLI flags belong to uvicorn. The `python -m app` entrypoint accepts both CLI flags and env vars.
+
 ## API
 
 ### `GET /health`
