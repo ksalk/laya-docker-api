@@ -47,12 +47,6 @@ def parse_args(argv=None):
         help="Comma-separated checkpoints to preload: english,multilingual,typed-decisions or 'all'",
     )
     parser.add_argument(
-        "--max-loaded",
-        type=int,
-        default=_int_env("LAYA_MAX_LOADED", 2),
-        help="Max checkpoints kept resident (LRU eviction)",
-    )
-    parser.add_argument(
         "--device",
         default=os.environ.get("LAYA_DEVICE", "cuda"),
         help="Compute device: cuda or cpu",
@@ -140,7 +134,11 @@ async def lifespan(app: FastAPI):
 
     logger.info("Loading Laya router (preload=%s, device=%s)...", preload, device)
     start = time.perf_counter()
-    router = Router(preload=False, max_loaded=args.max_loaded, device=device)
+    # max_loaded is the SDK's internal LRU cap; set to the preload-set size so
+    # eviction can never occur — preloaded checkpoints stay resident for the
+    # process lifetime. Requests outside the set are rejected with 409 (see
+    # /predict) rather than loaded on demand.
+    router = Router(preload=False, max_loaded=len(set(preload)), device=device)
     if preload:
         router.preload(preload)
     logger.info("Router ready in %.1fs (resident: %s)", time.perf_counter() - start, router.loaded)
@@ -152,7 +150,6 @@ async def lifespan(app: FastAPI):
     runtime.update(
         device=device,
         preload=preload,
-        max_loaded=args.max_loaded,
         gpu=gpu_name,
         laya_version=laya.__version__,
         started=time.time(),
@@ -262,7 +259,6 @@ async def health():
         gpu=runtime["gpu"],
         vram=vram_info(),
         checkpoints_resident=router.loaded,
-        max_loaded=runtime["max_loaded"],
         laya_version=runtime["laya_version"],
     )
 
@@ -274,7 +270,22 @@ def predict(req: PredictRequest):
     start = time.perf_counter()
     try:
         with _predict_lock:
+            # route() decides without loading anything, so a request that needs
+            # a non-resident checkpoint is rejected here instead of triggering
+            # an on-demand load; preloaded checkpoints never get evicted.
+            decision = router.route(req.state, req.questions, model=req.model)
+            if decision["model"] not in runtime["preload"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Checkpoint {decision['model']!r} is not resident; "
+                        f"available: {runtime['preload']} "
+                        "(add it to LAYA_PRELOAD and restart)"
+                    ),
+                )
             result = router.predict(req.state, req.questions, model=req.model)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Prediction failed")
         raise HTTPException(status_code=500, detail="Prediction failed") from exc

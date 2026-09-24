@@ -63,7 +63,6 @@ curl http://127.0.0.1:8120/health
   "gpu": "NVIDIA GeForce RTX 4060 Ti",
   "vram": {"used_mb": 4300, "total_mb": 8188, "free_mb": 3888},
   "checkpoints_resident": ["english", "multilingual"],
-  "max_loaded": 2,
   "laya_version": "0.3.4"
 }
 ```
@@ -74,8 +73,7 @@ Configure via environment variables (or edit `docker-compose.yml`):
 
 | Env var | Default | Description |
 |---|---|---|
-| `LAYA_PRELOAD` | `english,multilingual` | Checkpoints resident at startup: comma-separated `english,multilingual,typed-decisions` or `all` |
-| `LAYA_MAX_LOADED` | `2` | Max checkpoints kept in memory (LRU eviction). Non-resident checkpoints load on demand (~10 s per call) |
+| `LAYA_PRELOAD` | `english,multilingual` | Checkpoints resident at startup: comma-separated `english,multilingual,typed-decisions` or `all`. Preloaded checkpoints stay in memory for the process lifetime — no LRU eviction, no on-demand loading. Requests that need a non-resident checkpoint get `409 Conflict` |
 | `LAYA_DEVICE` | `cuda` | `cuda` or `cpu`. Falls back to CPU automatically if CUDA is unavailable |
 | `LAYA_PORT` | `8120` | Listen port inside the container |
 
@@ -85,7 +83,7 @@ Example — CPU-only, multilingual only:
 LAYA_PRELOAD=multilingual LAYA_DEVICE=cpu docker compose up -d
 ```
 
-Numeric env vars (`LAYA_MAX_LOADED`, `LAYA_PORT`) must be integers; bad values fail startup with a message naming the variable.
+Numeric env vars (`LAYA_PORT`) must be integers; bad values fail startup with a message naming the variable. The removed `LAYA_MAX_LOADED` variable is simply ignored — `LAYA_PRELOAD` is the complete residency policy.
 
 > Running without Docker (`uvicorn app.main:app`)? Configuration is then env-only — CLI flags belong to uvicorn. The `python -m app` entrypoint accepts both CLI flags and env vars.
 
@@ -148,7 +146,7 @@ Response — Laya's raw result plus `latency_ms`:
 
 Optional fields:
 
-- `"model": "english" | "multilingual" | "typed-decisions"` — explicit checkpoint override. When omitted, the Router auto-detects language/script per request.
+- `"model": "english" | "multilingual" | "typed-decisions"` — explicit checkpoint override. When omitted, the Router auto-detects language/script per request. If the chosen checkpoint (explicit or auto-routed) is not in `LAYA_PRELOAD`, the request fails with `409 Conflict` naming the available checkpoints — nothing is loaded on demand and there is no fallback to another checkpoint.
 
 ### Authentication (optional)
 
@@ -216,7 +214,7 @@ uv pip compile requirements.txt --universal -o requirements.lock
 
 - **`failed to discover GPU vendor from CDI`** — NVIDIA Container Toolkit not set up; see the verify step above.
 - **`CUDA out of memory`** — pick a smaller `LAYA_PRELOAD` set (see VRAM tuning) or set `LAYA_DEVICE=cpu`.
-- **Slow responses (~10 s) on some requests** — the request needs a non-resident checkpoint; add it to `LAYA_PRELOAD` or raise `LAYA_MAX_LOADED`.
+- **`409 Checkpoint ... is not resident`** — the request needs a checkpoint outside `LAYA_PRELOAD`; add it to the preload set and `docker compose restart`.
 - **`503 Model still loading`** — first start is downloading weights; follow `docker compose logs -f`.
 
 ## License

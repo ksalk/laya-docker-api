@@ -12,7 +12,6 @@ from app.main import parse_args
 def clean_laya_env(monkeypatch):
     for name in (
         "LAYA_PRELOAD",
-        "LAYA_MAX_LOADED",
         "LAYA_DEVICE",
         "LAYA_HOST",
         "LAYA_PORT",
@@ -23,22 +22,23 @@ def clean_laya_env(monkeypatch):
 
 def test_defaults_with_empty_argv():
     args = parse_args(argv=[])
-    assert args.max_loaded == 2
     assert args.port == 8120
     assert args.device == "cuda"
     assert args.preload == "english,multilingual"
-
-
-def test_cli_wins_over_env(monkeypatch):
-    monkeypatch.setenv("LAYA_MAX_LOADED", "4")
-    args = parse_args(argv=["--max-loaded", "3"])
-    assert args.max_loaded == 3
 
 
 def test_env_fallback_with_empty_argv(monkeypatch):
     monkeypatch.setenv("LAYA_PRELOAD", "all")
     args = parse_args(argv=[])
     assert args.preload == "all"
+
+
+def test_stale_max_loaded_env_is_ignored(monkeypatch):
+    # Removed setting: an old LAYA_MAX_LOADED in the environment is simply
+    # unused, with no compatibility shim or warning.
+    monkeypatch.setenv("LAYA_MAX_LOADED", "4")
+    args = parse_args(argv=[])
+    assert not hasattr(args, "max_loaded")
 
 
 def test_sys_argv_is_ignored_when_argv_given(monkeypatch):
@@ -49,12 +49,6 @@ def test_sys_argv_is_ignored_when_argv_given(monkeypatch):
     assert args.host == "0.0.0.0"
 
 
-def test_bad_max_loaded_env_exits_with_name(monkeypatch):
-    monkeypatch.setenv("LAYA_MAX_LOADED", "foo")
-    with pytest.raises(SystemExit, match="LAYA_MAX_LOADED"):
-        parse_args(argv=[])
-
-
 def test_empty_port_env_exits_clearly(monkeypatch):
     monkeypatch.setenv("LAYA_PORT", "")
     with pytest.raises(SystemExit, match="LAYA_PORT"):
@@ -62,5 +56,5 @@ def test_empty_port_env_exits_clearly(monkeypatch):
 
 
 def test_valid_int_env_parses(monkeypatch):
-    monkeypatch.setenv("LAYA_MAX_LOADED", "3")
-    assert parse_args(argv=[]).max_loaded == 3
+    monkeypatch.setenv("LAYA_PORT", "9000")
+    assert parse_args(argv=[]).port == 9000

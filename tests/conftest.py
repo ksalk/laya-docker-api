@@ -15,10 +15,14 @@ class FakeRouter:
         self.result = result or {"answers": {}, "routing": {"model": "english"}}
         self.error = error
         self.calls = []
+        self.route_model = None  # when set, route() decides this checkpoint
 
     @property
     def loaded(self):
         return ["english", "multilingual"]
+
+    def route(self, state, questions, model=None, **kwargs):
+        return {"model": self.route_model or model or "english"}
 
     def predict(self, state, questions, model=None, **kwargs):
         self.calls.append({"state": state, "questions": questions, "model": model})
@@ -33,9 +37,8 @@ def runtime_env():
     app_main.runtime.update(
         device="cpu",
         gpu=None,
-        max_loaded=2,
         laya_version="0.3.4-test",
-        preload=["english"],
+        preload=["english", "multilingual"],
         started=0.0,
     )
     yield app_main.runtime

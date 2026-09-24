@@ -10,7 +10,6 @@ services:
       - "127.0.0.1:8120:8120"
     environment:
       LAYA_PRELOAD: ${LAYA_PRELOAD:-english,multilingual}
-      LAYA_MAX_LOADED: ${LAYA_MAX_LOADED:-2}
       LAYA_DEVICE: ${LAYA_DEVICE:-cuda}
       LAYA_PORT: ${LAYA_PORT:-8120}
       LAYA_API_KEY: ${LAYA_API_KEY:-}

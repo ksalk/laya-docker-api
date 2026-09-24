@@ -60,6 +60,27 @@ class TestPredictSuccess:
         assert fake_router.calls[0]["questions"] == VALID_BODY["questions"]
 
 
+class TestResidency:
+    """Preloaded checkpoints are the only usable ones: anything else is a 409,
+    never an on-demand load or a fallback to another checkpoint."""
+
+    def test_explicit_non_resident_model_is_409(self, client, fake_router):
+        resp = client.post("/predict", json={**VALID_BODY, "model": "typed-decisions"})
+        assert resp.status_code == 409
+        assert "typed-decisions" in resp.json()["detail"]
+        assert fake_router.calls == []  # predict must never run
+
+    def test_auto_routed_non_resident_is_409(self, client, fake_router):
+        fake_router.route_model = "typed-decisions"
+        resp = client.post("/predict", json=VALID_BODY)
+        assert resp.status_code == 409
+        assert fake_router.calls == []
+
+    def test_preloaded_explicit_model_ok(self, client, fake_router):
+        resp = client.post("/predict", json={**VALID_BODY, "model": "multilingual"})
+        assert resp.status_code == 200
+
+
 class TestPredictErrors:
     def test_router_exception_maps_to_500(self, client, fake_router):
         fake_router.error = RuntimeError("CUDA out of memory: GPU 0 has paths /usr/local/lib")
@@ -173,7 +194,6 @@ class TestHealth:
         assert body["gpu"] is None
         assert body["vram"] is None  # no torch installed in test venv
         assert body["checkpoints_resident"] == ["english", "multilingual"]
-        assert body["max_loaded"] == 2
         assert body["laya_version"] == "0.3.4-test"
 
     def test_503_when_router_missing(self, no_router):

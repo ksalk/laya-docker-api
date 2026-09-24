@@ -57,5 +57,4 @@ class HealthResponse(BaseModel):
     gpu: Optional[str] = None
     vram: Optional[dict[str, int]] = None
     checkpoints_resident: list[str]
-    max_loaded: int
     laya_version: str

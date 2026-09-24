@@ -23,6 +23,9 @@ class SlowFakeRouter:
     def __init__(self, delay: float):
         self.delay = delay
 
+    def route(self, state, questions, model=None, **kwargs):
+        return {"model": model or "english"}
+
     def predict(self, state, questions, model=None, **kwargs):
         time.sleep(self.delay)
         return {"answers": {}, "routing": {"model": model or "english"}}
@@ -38,8 +41,8 @@ def server():
     app_main.runtime.update(
         device="cpu",
         gpu=None,
-        max_loaded=2,
         laya_version="0.3.4",
+        preload=["english"],
     )
     # lifespan="off" skips parse_args()/laya import (finding #8); the fake
     # router injected below is all the app under test needs.
