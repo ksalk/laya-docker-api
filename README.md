@@ -207,8 +207,10 @@ Requires [mise](https://mise.jdx.dev/). This creates a Python 3.12 venv in `.ven
 Production deps are locked in `requirements.lock` (generated from `requirements.txt`); the Dockerfile installs from the lock, so builds are reproducible. `requirements-dev.txt` stays loose and torch-free for local dev and CI. After changing `requirements.txt`, regenerate:
 
 ```bash
-uv pip compile requirements.txt --universal -o requirements.lock
+mise run lock-gen
 ```
+
+The compile targets Python 3.11 (`--python-version 3.11`), the Docker base image's Python — resolving against your local Python instead can pin packages that don't exist on the image. CI enforces freshness via `mise run lock-check`, which fails if the committed lock differs from a fresh compile. `mise run docker-build-check` does a clean image build for the same reason.
 
 ## Troubleshooting
 

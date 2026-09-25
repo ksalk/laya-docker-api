@@ -13,3 +13,22 @@ uv pip install -r requirements-dev.txt
 description = "Run the test suite"
 depends = ["setup"]
 run = "uv run pytest"
+
+[tasks.lock-gen]
+description = "Regenerate requirements.lock (target the Docker base image's Python 3.11)"
+run = "uv pip compile requirements.txt --universal --python-version 3.11 -o requirements.lock"
+
+[tasks.lock-check]
+description = "Fail if requirements.lock differs from a fresh compile of requirements.txt"
+run = """
+tmp=$(mktemp -d)
+cp requirements.txt "$tmp/"
+cp requirements.lock "$tmp/requirements.lock"
+(cd "$tmp" && uv pip compile requirements.txt --universal --python-version 3.11 -o requirements.lock)
+diff requirements.lock "$tmp/requirements.lock"
+"""
+
+[tasks.docker-build-check]
+description = "Clean Docker image build to catch broken requirements.lock or base-image drift"
+depends = ["lock-check"]
+run = "docker build --pull --no-cache -t laya-api:check ."
